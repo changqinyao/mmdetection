@@ -341,7 +341,7 @@ class GIoULoss(nn.Module):
                 reduction_override=None,
                 **kwargs):
         if weight is not None and not torch.any(weight > 0):
-            return (pred * weight).sum()  # 0
+            return (pred * weight[:,None]).sum()  # 0
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
             reduction_override if reduction_override else self.reduction)

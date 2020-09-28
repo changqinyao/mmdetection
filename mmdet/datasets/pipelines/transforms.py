@@ -392,7 +392,7 @@ class Pad(object):
         for key in results.get('img_fields', ['img']):
             if self.size is not None:
                 padded_img = mmcv.impad(
-                    results[key], shape=self.size, pad_val=self.pad_val)
+                    results[key], shape=self.size, pad_val=tuple(self.pad_val))
             elif self.size_divisor is not None:
                 padded_img = mmcv.impad_to_multiple(
                     results[key], self.size_divisor, pad_val=self.pad_val)
