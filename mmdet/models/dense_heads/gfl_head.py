@@ -3,11 +3,11 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import ConvModule, Scale, bias_init_with_prob, normal_init
+from mmcv.runner import force_fp32
 
 from mmdet.core import (anchor_inside_flags, bbox2distance, bbox_overlaps,
                         build_assigner, build_sampler, distance2bbox,
-                        force_fp32, images_to_levels, multi_apply,
-                        multiclass_nms, unmap)
+                        images_to_levels, multi_apply, multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .anchor_head import AnchorHead
 
@@ -382,7 +382,8 @@ class GFLHead(AnchorHead):
                            img_shape,
                            scale_factor,
                            cfg,
-                           rescale=False):
+                           rescale=False,
+                           with_nms=True):
         """Transform outputs for a single batch item into labeled boxes.
 
         Args:
@@ -401,6 +402,8 @@ class GFLHead(AnchorHead):
                 if None, test_cfg would be used.
             rescale (bool): If True, return boxes in original image space.
                 Default: False.
+            with_nms (bool): If True, do nms before return boxes.
+                Default: True.
 
         Returns:
             tuple(Tensor):
@@ -450,10 +453,13 @@ class GFLHead(AnchorHead):
         padding = mlvl_scores.new_zeros(mlvl_scores.shape[0], 1)
         mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
 
-        det_bboxes, det_labels = multiclass_nms(mlvl_bboxes, mlvl_scores,
-                                                cfg.score_thr, cfg.nms,
-                                                cfg.max_per_img)
-        return det_bboxes, det_labels
+        if with_nms:
+            det_bboxes, det_labels = multiclass_nms(mlvl_bboxes, mlvl_scores,
+                                                    cfg.score_thr, cfg.nms,
+                                                    cfg.max_per_img)
+            return det_bboxes, det_labels
+        else:
+            return mlvl_bboxes, mlvl_scores
 
     def get_targets(self,
                     anchor_list,
@@ -629,3 +635,20 @@ class GFLHead(AnchorHead):
             int(flags.sum()) for flags in split_inside_flags
         ]
         return num_level_anchors_inside
+
+
+@HEADS.register_module()
+class GFLSEPCHead(GFLHead):
+
+    def forward_single(self, x, scale):
+        if not isinstance(x, list):
+            x = [x, x]
+        cls_feat = x[0]
+        reg_feat = x[1]
+        for cls_conv in self.cls_convs:
+            cls_feat = cls_conv(cls_feat)
+        for reg_conv in self.reg_convs:
+            reg_feat = reg_conv(reg_feat)
+        cls_score = self.gfl_cls(cls_feat)
+        bbox_pred = scale(self.gfl_reg(reg_feat)).float()
+        return cls_score, bbox_pred

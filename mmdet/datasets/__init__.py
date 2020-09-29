@@ -11,11 +11,10 @@ from .voc import VOCDataset
 from .wider_face import WIDERFaceDataset
 from .xml_style import XMLDataset
 
-from .wheat import WheatDataset
 __all__ = [
     'CustomDataset', 'XMLDataset', 'CocoDataset', 'DeepFashionDataset',
     'VOCDataset', 'CityscapesDataset', 'LVISDataset', 'GroupSampler',
     'DistributedGroupSampler', 'DistributedSampler', 'build_dataloader',
     'ConcatDataset', 'RepeatDataset', 'ClassBalancedDataset',
-    'WIDERFaceDataset', 'DATASETS', 'PIPELINES', 'build_dataset','WheatDataset'
+    'WIDERFaceDataset', 'DATASETS', 'PIPELINES', 'build_dataset'
 ]
